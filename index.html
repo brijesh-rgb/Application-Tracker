@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2B4ACB">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Applications">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  :root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; }
+  [hidden] { display: none !important; }
+  img { max-width: 100%; }
+</style>
+<title>Application Tracker</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: one narrow column. Header, "first application" callout, status filters, then a chronological ledger of rows. The add form stays hidden until the button is pressed. */
+  :root {
+    --bg: #F2F4F7;
+    --surface: #FFFFFF;
+    --fg: #14202B;
+    --muted: #5B6877;
+    --line: #D9DFE6;
+    --accent: #2B4ACB;
+    --accent-fg: #FFFFFF;
+    --accent-soft: #E4E9FB;
+    --danger: #9B2C2C;
+    --st-applied-bg: #E6EBF2;    --st-applied-fg: #2E4057;
+    --st-assessment-bg: #FBEFD5; --st-assessment-fg: #7A5300;
+    --st-interview-bg: #E4E9FB;  --st-interview-fg: #2B3FA6;
+    --st-offer-bg: #D9F1E3;      --st-offer-fg: #17653A;
+    --st-rejected-bg: #F6DEDE;   --st-rejected-fg: #9B2C2C;
+    --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0F161D; --surface: #17202A; --fg: #E8EDF2; --muted: #9AA8B7; --line: #2A3643;
+      --accent: #8CA0FF; --accent-fg: #0F161D; --accent-soft: #232C55; --danger: #F2A0A0;
+      --st-applied-bg: #263240;    --st-applied-fg: #B8C6D8;
+      --st-assessment-bg: #3A2F14; --st-assessment-fg: #F0C770;
+      --st-interview-bg: #232C55;  --st-interview-fg: #AEBBFF;
+      --st-offer-bg: #173A27;      --st-offer-fg: #7FD6A2;
+      --st-rejected-bg: #442123;   --st-rejected-fg: #F2A0A0;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0F161D; --surface: #17202A; --fg: #E8EDF2; --muted: #9AA8B7; --line: #2A3643;
+    --accent: #8CA0FF; --accent-fg: #0F161D; --accent-soft: #232C55; --danger: #F2A0A0;
+    --st-applied-bg: #263240;    --st-applied-fg: #B8C6D8;
+    --st-assessment-bg: #3A2F14; --st-assessment-fg: #F0C770;
+    --st-interview-bg: #232C55;  --st-interview-fg: #AEBBFF;
+    --st-offer-bg: #173A27;      --st-offer-fg: #7FD6A2;
+    --st-rejected-bg: #442123;   --st-rejected-fg: #F2A0A0;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.5;
+    padding-block: 28px 56px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .wrap { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+  h1, h2 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px; }
+  h1 { font-size: 2rem; line-height: 1.1; font-weight: 700; letter-spacing: -0.01em; }
+  .sub { margin: 4px 0 0; color: var(--muted); }
+  .btn {
+    border: 1px solid var(--line); background: var(--surface); border-radius: 8px;
+    padding: 9px 14px; font-weight: 500; line-height: 1.2;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.small { padding: 5px 9px; font-size: 13px; }
+  .btn.danger-armed { background: var(--danger); border-color: var(--danger); color: var(--surface); }
+
+  .first {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline;
+  }
+  .first .label { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .first .name { font-family: var(--font-display); font-size: 1.25rem; font-weight: 600; }
+  .first .when { font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+
+  /* Add / edit panel (hidden until opened) */
+  .panel {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px; display: flex; flex-direction: column; gap: 16px;
+  }
+  .panel h2 { font-size: 1.15rem; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .field.wide { grid-column: 1 / -1; }
+  .field label { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .field input, .field select, .field textarea {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; width: 100%; min-width: 0;
+  }
+  .field textarea { resize: vertical; min-height: 64px; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  .err { color: var(--danger); font-size: 13px; min-height: 1.2em; margin: 0; }
+
+  .ideas { display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--line); padding-top: 14px; }
+  .ideas h3 { margin: 0; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .group { display: flex; flex-direction: column; gap: 6px; }
+  .group .gname { font-size: 13px; color: var(--muted); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 4px 11px; font-size: 13px;
+  }
+  .chip:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .chip.done { color: var(--muted); text-decoration: line-through; }
+
+  /* Filters + toolbar */
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; }
+  .filter {
+    border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 12px; font-size: 13px;
+    display: inline-flex; gap: 7px; align-items: baseline;
+  }
+  .filter .n { font-family: var(--font-mono); color: var(--muted); font-size: 12px; }
+  .filter[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+  .filter[aria-pressed="true"] .n { color: inherit; opacity: 0.85; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; }
+  .toolbar input { flex: 1 1 200px; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 11px; }
+
+  /* Ledger */
+  .list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+  .row { display: grid; grid-template-columns: 2.75rem minmax(0, 1fr); gap: 8px 10px; padding: 14px 16px; border-top: 1px solid var(--line); }
+  .row:first-child { border-top: 0; }
+  .num { font-family: var(--font-mono); font-size: 13px; color: var(--muted); padding-top: 3px; }
+  .main { min-width: 0; }
+  .company { font-family: var(--font-display); font-weight: 600; font-size: 1.1rem; line-height: 1.25; overflow-wrap: anywhere; }
+  .role { color: var(--muted); overflow-wrap: anywhere; }
+  .notes { margin: 6px 0 0; font-size: 14px; overflow-wrap: anywhere; white-space: pre-wrap; }
+  .posting { font-size: 13px; color: var(--accent); }
+  .meta { grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .date { font-family: var(--font-mono); font-size: 13px; }
+  .ago { color: var(--muted); }
+  .status {
+    appearance: none; -webkit-appearance: none; border: 0; border-radius: 999px; padding: 4px 26px 4px 11px; font-size: 13px; font-weight: 600;
+    background-repeat: no-repeat; background-position: right 9px center; background-size: 8px 5px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23808a96'/%3E%3C/svg%3E");
+  }
+  .status[data-s="Applied"] { background-color: var(--st-applied-bg); color: var(--st-applied-fg); }
+  .status[data-s="Assessment"] { background-color: var(--st-assessment-bg); color: var(--st-assessment-fg); }
+  .status[data-s="Interview"] { background-color: var(--st-interview-bg); color: var(--st-interview-fg); }
+  .status[data-s="Offer"] { background-color: var(--st-offer-bg); color: var(--st-offer-fg); }
+  .status[data-s="Rejected"] { background-color: var(--st-rejected-bg); color: var(--st-rejected-fg); }
+  .rowactions { display: flex; gap: 6px; }
+
+  .empty { padding: 32px 18px; text-align: center; color: var(--muted); display: flex; flex-direction: column; gap: 6px; align-items: center; }
+  .empty strong { color: var(--fg); font-family: var(--font-display); font-size: 1.1rem; }
+  .foot { color: var(--muted); font-size: 13px; }
+
+  @media (min-width: 720px) {
+    .row { grid-template-columns: 2.75rem minmax(0, 1fr) auto; align-items: start; }
+    .meta { grid-column: 3; grid-row: 1; justify-content: flex-end; }
+  }
+  @media (max-width: 520px) {
+    .grid { grid-template-columns: minmax(0, 1fr); }
+    h1 { font-size: 1.7rem; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .btn, .chip, .filter { transition: background-color .15s, border-color .15s; }
+  }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Application Tracker</h1>
+      <p class="sub">Every company you applied to, in the order you applied.</p>
+    </div>
+    <button type="button" class="btn primary" id="toggleAdd" aria-expanded="false" aria-controls="addPanel">Add application</button>
+  </header>
+
+  <section class="panel" id="addPanel" hidden aria-labelledby="panelTitle">
+    <h2 id="panelTitle">New application</h2>
+    <form id="appForm" novalidate>
+      <div class="grid">
+        <div class="field">
+          <label for="fCompany">Company</label>
+          <input id="fCompany" name="company" list="companyList" autocomplete="off" required>
+          <datalist id="companyList"></datalist>
+        </div>
+        <div class="field">
+          <label for="fRole">Role</label>
+          <input id="fRole" name="role" list="roleList" placeholder="Data Scientist" autocomplete="off">
+          <datalist id="roleList"></datalist>
+        </div>
+        <div class="field">
+          <label for="fDate">Date applied</label>
+          <input id="fDate" name="date" type="date" required>
+        </div>
+        <div class="field">
+          <label for="fStatus">Status</label>
+          <select id="fStatus" name="status"></select>
+        </div>
+        <div class="field wide">
+          <label for="fLink">Job link</label>
+          <input id="fLink" name="link" type="url" inputmode="url" placeholder="https://careers.example.com/job/123" autocomplete="off">
+        </div>
+        <div class="field wide">
+          <label for="fNotes">Notes</label>
+          <textarea id="fNotes" name="notes" placeholder="Job ID, referral, deadline, what to prepare"></textarea>
+        </div>
+      </div>
+      <p class="err" id="formErr" role="alert"></p>
+      <div class="actions">
+        <button type="submit" class="btn primary" id="saveBtn">Save application</button>
+        <button type="button" class="btn" id="cancelBtn">Cancel</button>
+      </div>
+    </form>
+    <div class="ideas">
+      <h3>Roles and companies</h3>
+      <div id="ideaGroups" style="display:flex;flex-direction:column;gap:12px"></div>
+    </div>
+  </section>
+
+  <div class="first" id="firstBox" hidden></div>
+
+  <div class="filters" id="filters" role="group" aria-label="Filter by status"></div>
+
+  <div class="toolbar">
+    <input id="search" type="search" placeholder="Search company or role" aria-label="Search applications" autocomplete="off">
+    <button type="button" class="btn" id="sortBtn">Oldest first</button>
+  </div>
+
+  <ol class="list" id="list" aria-live="polite"></ol>
+
+  <p class="foot">Saved in this browser on this device. Clearing site data removes it.</p>
+</div>
+
+<script>
+(function () {
+  var KEY = 'application-tracker-v1';
+  var STATUSES = ['Applied', 'Assessment', 'Interview', 'Offer', 'Rejected'];
+  var IDEAS = [
+    { name: 'Product companies', items: ['Microsoft', 'Google', 'Amazon', 'Adobe', 'Atlassian', 'Intuit', 'Oracle', 'SAP', 'Salesforce', 'Flipkart', 'Swiggy', 'Zomato', 'PhonePe', 'Razorpay', 'CRED', 'Uber'] },
+    { name: 'Analytics and data science firms', items: ['Fractal Analytics', 'Tiger Analytics', 'LatentView', 'Mu Sigma', 'ZS Associates', 'Tredence', 'Genpact', 'EXL'] },
+    { name: 'Banks and consulting', items: ['Barclays', 'JPMorgan Chase', 'Goldman Sachs', 'Deloitte', 'PwC', 'EY', 'KPMG', 'American Express'] },
+    { name: 'IT services and campus drives', items: ['TCS', 'Infosys', 'Wipro', 'LTIMindtree', 'Capgemini', 'Accenture', 'Cognizant', 'Persistent Systems', 'Cybage', 'Zensar'] }
+  ];
+
+  var ROLES = ['Data Scientist', 'Data Science Intern', 'Machine Learning Engineer', 'ML Intern', 'AI Engineer', 'Applied Scientist', 'Data Analyst', 'Business Analyst', 'Analytics Associate', 'Graduate Engineer Trainee'];
+
+  var apps = [];
+  var editingId = null;
+  var filter = 'All';
+  var sortDir = 'asc';
+  var query = '';
+  var armedId = null;
+  var armTimer = null;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var el = $('addPanel'), toggleBtn = $('toggleAdd'), form = $('appForm');
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (raw) { var a = JSON.parse(raw); if (Array.isArray(a)) apps = a; }
+    } catch (e) { /* storage unavailable, keep in memory */ }
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(apps)); } catch (e) { /* ignore */ }
+  }
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function todayStr() { var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function parseDate(s) { var p = s.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  function fmtDate(s) { return parseDate(s).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }); }
+  function daysAgo(s) {
+    var t = parseDate(todayStr()), d = parseDate(s);
+    var n = Math.round((t - d) / 86400000);
+    if (n <= 0) return 'today';
+    if (n === 1) return 'yesterday';
+    return n + ' days ago';
+  }
+  function safeUrl(u) {
+    if (!u) return '';
+    var v = u.trim();
+    if (!/^https?:\/\//i.test(v)) v = 'https://' + v;
+    try { var x = new URL(v); return (x.protocol === 'http:' || x.protocol === 'https:') ? x.href : ''; } catch (e) { return ''; }
+  }
+  function node(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function chronological() {
+    return apps.slice().sort(function (a, b) {
+      return a.date.localeCompare(b.date) || (a.createdAt - b.createdAt);
+    });
+  }
+
+  function openPanel(open) {
+    el.hidden = !open;
+    toggleBtn.setAttribute('aria-expanded', String(open));
+    toggleBtn.textContent = open ? 'Close' : 'Add application';
+    if (open) {
+      renderIdeas();
+      $('fCompany').focus();
+    }
+  }
+  function resetForm() {
+    editingId = null;
+    form.reset();
+    $('fDate').value = todayStr();
+    $('fStatus').value = 'Applied';
+    $('formErr').textContent = '';
+    $('panelTitle').textContent = 'New application';
+    $('saveBtn').textContent = 'Save application';
+  }
+
+  function renderIdeas() {
+    var have = {};
+    apps.forEach(function (a) { have[a.company.toLowerCase()] = true; });
+    var host = $('ideaGroups');
+    host.textContent = '';
+    var rbox = node('div', 'group');
+    rbox.appendChild(node('div', 'gname', 'Roles I am targeting'));
+    var rchips = node('div', 'chips');
+    ROLES.forEach(function (r) {
+      var rb = node('button', 'chip', r);
+      rb.type = 'button';
+      rb.addEventListener('click', function () {
+        $('fRole').value = r;
+        if (!$('fCompany').value.trim()) $('fCompany').focus(); else $('fDate').focus();
+      });
+      rchips.appendChild(rb);
+    });
+    rbox.appendChild(rchips);
+    host.appendChild(rbox);
+    IDEAS.forEach(function (g) {
+      var box = node('div', 'group');
+      box.appendChild(node('div', 'gname', g.name));
+      var chips = node('div', 'chips');
+      g.items.forEach(function (name) {
+        var done = !!have[name.toLowerCase()];
+        var b = node('button', 'chip' + (done ? ' done' : ''), name);
+        b.type = 'button';
+        if (done) b.title = 'Already in your list';
+        b.addEventListener('click', function () {
+          $('fCompany').value = name;
+          $('fRole').focus();
+        });
+        chips.appendChild(b);
+      });
+      box.appendChild(chips);
+      host.appendChild(box);
+    });
+    var dl = $('companyList');
+    dl.textContent = '';
+    IDEAS.forEach(function (g) { g.items.forEach(function (n) { var o = document.createElement('option'); o.value = n; dl.appendChild(o); }); });
+    var rl = $('roleList');
+    rl.textContent = '';
+    ROLES.forEach(function (r) { var o = document.createElement('option'); o.value = r; rl.appendChild(o); });
+  }
+
+  function renderFirst(sorted) {
+    var box = $('firstBox');
+    if (!sorted.length) { box.hidden = true; return; }
+    var f = sorted[0];
+    box.hidden = false;
+    box.textContent = '';
+    box.appendChild(node('span', 'label', 'First application'));
+    box.appendChild(node('span', 'name', f.company));
+    box.appendChild(node('span', 'when', fmtDate(f.date) + ' · ' + daysAgo(f.date)));
+  }
+
+  function renderFilters() {
+    var host = $('filters');
+    host.textContent = '';
+    var counts = { All: apps.length };
+    STATUSES.forEach(function (s) { counts[s] = 0; });
+    apps.forEach(function (a) { if (counts[a.status] != null) counts[a.status]++; });
+    ['All'].concat(STATUSES).forEach(function (s) {
+      var b = node('button', 'filter');
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(filter === s));
+      b.appendChild(document.createTextNode(s));
+      b.appendChild(node('span', 'n', String(counts[s])));
+      b.addEventListener('click', function () { filter = s; render(); });
+      host.appendChild(b);
+    });
+  }
+
+  function renderRow(a, rank) {
+    var li = node('li', 'row');
+    li.appendChild(node('div', 'num', '#' + rank));
+
+    var main = node('div', 'main');
+    main.appendChild(node('div', 'company', a.company));
+    if (a.role) main.appendChild(node('div', 'role', a.role));
+    if (a.notes) main.appendChild(node('p', 'notes', a.notes));
+    var url = safeUrl(a.link);
+    if (url) {
+      var p = node('div');
+      var link = node('a', 'posting', 'Job posting ↗');
+      link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer';
+      p.appendChild(link);
+      main.appendChild(p);
+    }
+    li.appendChild(main);
+
+    var meta = node('div', 'meta');
+    var d = node('div', 'date');
+    d.appendChild(document.createTextNode(fmtDate(a.date)));
+    d.appendChild(node('span', 'ago', ' · ' + daysAgo(a.date)));
+    meta.appendChild(d);
+
+    var sel = node('select', 'status');
+    sel.setAttribute('aria-label', 'Status for ' + a.company);
+    sel.setAttribute('data-s', a.status);
+    STATUSES.forEach(function (s) {
+      var o = document.createElement('option'); o.value = s; o.textContent = s; if (s === a.status) o.selected = true; sel.appendChild(o);
+    });
+    sel.addEventListener('change', function () { a.status = sel.value; save(); render(); });
+    meta.appendChild(sel);
+
+    var acts = node('div', 'rowactions');
+    var edit = node('button', 'btn small', 'Edit'); edit.type = 'button';
+    edit.addEventListener('click', function () { startEdit(a.id); });
+    var del = node('button', 'btn small' + (armedId === a.id ? ' danger-armed' : ''), armedId === a.id ? 'Confirm delete' : 'Delete');
+    del.type = 'button';
+    del.addEventListener('click', function () {
+      if (armedId === a.id) {
+        apps = apps.filter(function (x) { return x.id !== a.id; });
+        armedId = null; clearTimeout(armTimer); save(); render();
+      } else {
+        armedId = a.id; clearTimeout(armTimer);
+        armTimer = setTimeout(function () { armedId = null; render(); }, 3500);
+        render();
+      }
+    });
+    acts.appendChild(edit); acts.appendChild(del);
+    meta.appendChild(acts);
+    li.appendChild(meta);
+    return li;
+  }
+
+  function render() {
+    var sorted = chronological();
+    var rank = {};
+    sorted.forEach(function (a, i) { rank[a.id] = i + 1; });
+    renderFirst(sorted);
+    renderFilters();
+    $('sortBtn').textContent = sortDir === 'asc' ? 'Oldest first' : 'Newest first';
+
+    var q = query.trim().toLowerCase();
+    var shown = sorted.filter(function (a) {
+      if (filter !== 'All' && a.status !== filter) return false;
+      if (q && (a.company + ' ' + (a.role || '')).toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    });
+    if (sortDir === 'desc') shown.reverse();
+
+    var list = $('list');
+    list.textContent = '';
+    if (!apps.length) {
+      var e = node('li', 'empty');
+      e.appendChild(node('strong', null, 'No applications yet'));
+      e.appendChild(node('span', null, 'The first one you add becomes #1, so you can always see the order.'));
+      var b = node('button', 'btn primary', 'Add your first application'); b.type = 'button';
+      b.addEventListener('click', function () { resetForm(); openPanel(true); });
+      e.appendChild(b);
+      list.appendChild(e);
+      return;
+    }
+    if (!shown.length) {
+      var e2 = node('li', 'empty');
+      e2.appendChild(node('span', null, 'No applications match this filter.'));
+      list.appendChild(e2);
+      return;
+    }
+    shown.forEach(function (a) { list.appendChild(renderRow(a, rank[a.id])); });
+  }
+
+  function startEdit(id) {
+    var a = apps.filter(function (x) { return x.id === id; })[0];
+    if (!a) return;
+    editingId = id;
+    $('fCompany').value = a.company;
+    $('fRole').value = a.role || '';
+    $('fDate').value = a.date;
+    $('fStatus').value = a.status;
+    $('fLink').value = a.link || '';
+    $('fNotes').value = a.notes || '';
+    $('formErr').textContent = '';
+    $('panelTitle').textContent = 'Edit application';
+    $('saveBtn').textContent = 'Save changes';
+    openPanel(true);
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  STATUSES.forEach(function (s) {
+    var o = document.createElement('option'); o.value = s; o.textContent = s; $('fStatus').appendChild(o);
+  });
+
+  toggleBtn.addEventListener('click', function () {
+    var willOpen = el.hidden;
+    if (willOpen) resetForm();
+    openPanel(willOpen);
+  });
+  $('cancelBtn').addEventListener('click', function () { resetForm(); openPanel(false); });
+
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var company = $('fCompany').value.trim();
+    var date = $('fDate').value;
+    if (!company) { $('formErr').textContent = 'Enter the company name.'; $('fCompany').focus(); return; }
+    if (!date) { $('formErr').textContent = 'Pick the date you applied.'; $('fDate').focus(); return; }
+    var rec = {
+      company: company,
+      role: $('fRole').value.trim(),
+      date: date,
+      status: $('fStatus').value,
+      link: $('fLink').value.trim(),
+      notes: $('fNotes').value.trim()
+    };
+    if (editingId) {
+      apps.forEach(function (a) { if (a.id === editingId) { a.company = rec.company; a.role = rec.role; a.date = rec.date; a.status = rec.status; a.link = rec.link; a.notes = rec.notes; } });
+    } else {
+      rec.id = 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      rec.createdAt = Date.now();
+      apps.push(rec);
+    }
+    save();
+    resetForm();
+    openPanel(false);
+    render();
+  });
+
+  $('search').addEventListener('input', function (e) { query = e.target.value; render(); });
+  $('sortBtn').addEventListener('click', function () { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; render(); });
+
+  load();
+  resetForm();
+  render();
+})();
+
+(function(){ if ('serviceWorker' in navigator) { window.addEventListener('load', function(){ navigator.serviceWorker.register('./sw.js').catch(function(){}); }); } })();
+</script>
+
+</body>
+</html>
